@@ -73,9 +73,9 @@ def imagePrune(containerName) {
 def imageBuild(containerName, tag) {
     def oldTag = 'ancienne_tag'
 
-    def imageExists = sh(script: "docker images -q $containerName:$tag", returnStatus: true) == 0
+    def imageNotExists = sh(script: "docker images -q $containerName:$tag", returnStatus: true) == 0
 
-    if (imageExists) {
+    if (!imageNotExists) {
         sh "docker tag $containerName:$tag $containerName:$oldTag"
         sh "docker rmi $containerName:$oldTag"
     }
