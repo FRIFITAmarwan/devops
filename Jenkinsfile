@@ -19,7 +19,7 @@ node {
 
         stage('Build with test') {
 
-            sh "mvn clean install"
+            sh "mvn clean install -DfailIfNoTests=false"
         }
 
         stage('Sonarqube Analysis') {
@@ -71,28 +71,20 @@ def imagePrune(containerName) {
 }
 
 def imageBuild(containerName, tag) {
-    def oldTag = 'ancienne_tag'
-
-    def imageNotExists = sh(script: "docker images -q $containerName:$tag", returnStatus: true) == 0
-
-    if (!imageNotExists) {
-        sh "docker tag $containerName:$tag $containerName:$oldTag"
-        sh "docker rmi $containerName:$oldTag"
-    }
-
-
     sh "docker build -t $containerName:$tag --pull --no-cache ."
     echo "Image build complete"
 }
 
 def pushToImage(containerName, tag, dockerUser, dockerPassword) {
     sh "docker login -u $dockerUser -p $dockerPassword"
+    sh "docker tag $containerName:$tag $dockerUser/$containerName:$tag"
+    sh "docker push $dockerUser/$containerName:$tag"
     echo "Image push complete"
 }
 
 def runApp(containerName, tag, dockerHubUser, httpPort, envName) {
-    sh "docker pull $containerName"
-    sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName:$tag"
+    sh "docker pull $dockerHubUser/$containerName:$tag"
+    sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
     echo "Application started on port: ${httpPort} (http)"
 }
 
