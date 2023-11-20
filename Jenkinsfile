@@ -73,7 +73,7 @@ def imagePrune(containerName) {
 def imageBuild(containerName, tag) {
 def oldTag = 'ancienne_tag'
 
-    sh "docker tag $containerName $containerName:$oldTag"
+    sh "docker tag $containerName:$tag $containerName:$oldTag"
 
     sh "docker rmi $containerName:$oldTag"
 
