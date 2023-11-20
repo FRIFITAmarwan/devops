@@ -71,11 +71,15 @@ def imagePrune(containerName) {
 }
 
 def imageBuild(containerName, tag) {
-def oldTag = 'ancienne_tag'
+    def oldTag = 'ancienne_tag'
 
-    sh "docker tag $containerName:$tag $containerName:$oldTag"
+    def imageExists = sh(script: "docker images -q $containerName:$tag", returnStatus: true) == 0
 
-    sh "docker rmi $containerName:$oldTag"
+    if (imageExists) {
+        sh "docker tag $containerName:$tag $containerName:$oldTag"
+        sh "docker rmi $containerName:$oldTag"
+    }
+
 
     sh "docker build -t $containerName:$tag --pull --no-cache ."
     echo "Image build complete"
