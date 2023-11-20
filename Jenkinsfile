@@ -2,7 +2,7 @@ def ENV_NAME = getEnvName(env.BRANCH_NAME)
 def CONTAINER_NAME = "devops-" +ENV_NAME
 def CONTAINER_TAG = getTag(env.BUILD_NUMBER, env.BRANCH_NAME)
 def HTTP_PORT = getHTTPPort(env.BRANCH_NAME)
-def EMAIL_RECIPIENTS = "frifitamarwan1@gmail.com"
+def EMAIL_RECIPIENTS = "plusmarwan@gmail.com"
 
 
 node {
@@ -19,7 +19,7 @@ node {
 
         stage('Build with test') {
 
-            sh "mvn clean install -DfailIfNoTests=false"
+            sh "mvn clean install"
         }
 
         stage('Sonarqube Analysis') {
@@ -71,20 +71,25 @@ def imagePrune(containerName) {
 }
 
 def imageBuild(containerName, tag) {
+def oldTag = 'ancienne_tag'
+
+    sh "docker tag $containerName $containerName:$oldTag"
+
+    sh "docker rmi $containerName:$oldTag"
+
     sh "docker build -t $containerName:$tag --pull --no-cache ."
     echo "Image build complete"
 }
 
 def pushToImage(containerName, tag, dockerUser, dockerPassword) {
     sh "docker login -u $dockerUser -p $dockerPassword"
-    sh "docker tag $containerName:$tag $dockerUser/$containerName:$tag"
-    sh "docker push $dockerUser/$containerName:$tag"
+    sh "docker push $containerName:$tag"
     echo "Image push complete"
 }
 
 def runApp(containerName, tag, dockerHubUser, httpPort, envName) {
-    sh "docker pull $dockerHubUser/$containerName:$tag"
-    sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
+    sh "docker pull $containerName"
+    sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName:$tag"
     echo "Application started on port: ${httpPort} (http)"
 }
 
