@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3308/devops?serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/devops?serverTimezone=UTC
     username: root
     password: my_password
 
@@ -13,4 +13,4 @@ spring:
     enabled: false
 
 server:
-  port: 8888
+  port: 6789
