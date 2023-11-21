@@ -64,7 +64,7 @@ node {
 
 def imagePrune(containerName) {
     try {
-        sh "docker image prune -f"
+        sh "docker image prune -a -f"
         sh "docker stop $containerName"
     } catch (ignored) {
     }
