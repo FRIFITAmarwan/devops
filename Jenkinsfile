@@ -39,7 +39,7 @@ node {
         }
 
         stage('Image Build') {
-            imageBuild(CONTAINER_NAME, CONTAINER_TAG)
+            imageBuild(CONTAINER_NAME, CONTAINER_TAG, ENV_NAME, HTTP_PORT)
         }
 
         stage('Push to Docker Registry') {
@@ -70,8 +70,9 @@ def imagePrune(containerName) {
     }
 }
 
-def imageBuild(containerName, tag) {
+def imageBuild(containerName, tag, envName, httpPort) {
     sh "docker build -t $containerName:$tag --pull --no-cache ."
+    sh "Docker run --name $containerName -e SPRING_ACTIVE_PROFILES=ENV_NAME -p httpPort:httpPort $containerName:$tag"
     echo "Image build complete"
 }
 
