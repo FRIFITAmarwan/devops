@@ -39,7 +39,7 @@ node {
         }
 
         stage('Image Build') {
-            imageBuild(CONTAINER_NAME, CONTAINER_TAG, ENV_NAME, HTTP_PORT)
+            imageBuild(CONTAINER_NAME, CONTAINER_TAG)
         }
 
         stage('Push to Docker Registry') {
@@ -70,9 +70,8 @@ def imagePrune(containerName) {
     }
 }
 
-def imageBuild(containerName, tag, envName, httpPort) {
-    sh "docker build -t $containerName:$tag --no-cache ."
-    sh "Docker run --name $containerName -e SPRING_ACTIVE_PROFILES=$envName -p $httpPort:$httpPort $containerName:$tag"
+def imageBuild(containerName, tag) {
+    sh "docker build -t $containerName:$tag  -t $containerName --pull --no-cache ."
     echo "Image build complete"
 }
 
@@ -84,7 +83,7 @@ def pushToImage(containerName, tag, dockerUser, dockerPassword) {
 }
 
 def runApp(containerName, tag, dockerHubUser, httpPort, envName) {
-    sh "docker pull $dockerHubUser/$containerName:$tag"
+    sh "docker pull $dockerHubUser/$containerName"
     sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
     echo "Application started on port: ${httpPort} (http)"
 }
