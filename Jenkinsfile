@@ -42,7 +42,11 @@ node {
             imageBuild(CONTAINER_NAME, CONTAINER_TAG)
         }
 
-
+        stage('Push to Docker Registry') {
+            withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                pushToImage(CONTAINER_NAME, CONTAINER_TAG, USERNAME, PASSWORD)
+            }
+        }
 
         stage('Run App') {
             withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
