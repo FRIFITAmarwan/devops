@@ -45,9 +45,11 @@ node {
 
         stage('Run App') {
             withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                runApp(CONTAINER_NAME, CONTAINER_TAG, USERNAME, HTTP_PORT, ENV_NAME)
+                sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$ENV_NAME -d -p $HTTP_PORT:$HTTP_PORT --name $CONTAINER_NAME $USERNAME/$CONTAINER_NAME:$CONTAINER_TAG"
+                echo "Application started on port: ${HTTP_PORT} (http)"
             }
         }
+
     } finally {
         deleteDir()
         sendEmail(EMAIL_RECIPIENTS);
