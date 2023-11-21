@@ -72,7 +72,7 @@ def imagePrune(containerName) {
 
 def imageBuild(containerName, tag, envName, httpPort) {
     sh "docker build -t $containerName:$tag --no-cache ."
-    sh "Docker run --name $containerName -e SPRING_ACTIVE_PROFILES=$ENV_NAME -p $httpPort:$httpPort $containerName:$tag"
+    sh "Docker run --name $containerName -e SPRING_ACTIVE_PROFILES=$$envName -p $httpPort:$httpPort $containerName:$tag"
     echo "Image build complete"
 }
 
