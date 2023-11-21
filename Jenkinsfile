@@ -1,9 +1,8 @@
 def ENV_NAME = getEnvName(env.BRANCH_NAME)
-def CONTAINER_NAME = "devops-" +ENV_NAME
+def CONTAINER_NAME = "devops-" + ENV_NAME
 def CONTAINER_TAG = getTag(env.BUILD_NUMBER, env.BRANCH_NAME)
 def HTTP_PORT = getHTTPPort(env.BRANCH_NAME)
 def EMAIL_RECIPIENTS = "plusmarwan@gmail.com"
-
 
 node {
     try {
@@ -18,16 +17,15 @@ node {
         }
 
         stage('Build with test') {
-
             sh "mvn clean install -DfailIfNoTests=false"
         }
 
         stage('Sonarqube Analysis') {
             withSonarQubeEnv('sonarServer') {
-                sh " mvn sonar:sonar -Dintegration-tests.skip=true -Dmaven.test.failure.ignore=true"
+                sh "mvn sonar:sonar -Dintegration-tests.skip=true -Dmaven.test.failure.ignore=true"
             }
             timeout(time: 1, unit: 'MINUTES') {
-                def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
+                def qg = waitForQualityGate()
                 if (qg.status != 'OK') {
                     error "Pipeline aborted due to quality gate failure: ${qg.status}"
                 }
@@ -49,29 +47,27 @@ node {
         }
 
         stage('Run App') {
-            withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                runApp(CONTAINER_NAME, CONTAINER_TAG, USERNAME, HTTP_PORT, ENV_NAME)
-
-            }
+            runApp(CONTAINER_NAME, CONTAINER_TAG, USERNAME, HTTP_PORT, ENV_NAME)
         }
 
     } finally {
         deleteDir()
         sendEmail(EMAIL_RECIPIENTS);
     }
-
 }
 
 def imagePrune(containerName) {
     try {
-        sh "docker image prune -a -f"
         sh "docker stop $containerName"
+        sh "docker container wait $containerName"
+        sh "docker rm $containerName"
+        sh "docker image prune -a -f"
     } catch (ignored) {
     }
 }
 
 def imageBuild(containerName, tag) {
-    sh "docker build -t $containerName:$tag  -t $containerName --pull --no-cache ."
+    sh "docker build --rm -t $containerName:$tag ."
     echo "Image build complete"
 }
 
@@ -86,32 +82,4 @@ def runApp(containerName, tag, dockerHubUser, httpPort, envName) {
     sh "docker pull $dockerHubUser/$containerName:$tag"
     sh "docker run --rm --env SPRING_ACTIVE_PROFILES=$envName -d -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
     echo "Application started on port: ${httpPort} (http)"
-}
-
-def sendEmail(recipients) {
-    mail(
-            to: recipients,
-            subject: "Build ${env.BUILD_NUMBER} - ${currentBuild.currentResult} - (${currentBuild.fullDisplayName})",
-            body: "Check console output at: ${env.BUILD_URL}/console" + "\n")
-}
-
-String getEnvName(String branchName) {
-    if (branchName == 'master') {
-        return 'prod'
-    }
-    return (branchName == 'preprod') ? 'uat' : 'dev'
-}
-
-String getHTTPPort(String branchName) {
-    if (branchName == 'master') {
-        return '9999'
-    }
-    return (branchName == 'preprod') ? '8888' : '7777'
-}
-
-String getTag(String buildNumber, String branchName) {
-    if (branchName == 'master') {
-        return buildNumber + '-unstable'
-    }
-    return buildNumber + '-stable'
 }
