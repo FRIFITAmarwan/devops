@@ -1,65 +1,92 @@
 def ENV_NAME = getEnvName(env.BRANCH_NAME)
-def CONTAINER_NAME = "devops-" +ENV_NAME
+def CONTAINER_NAME = "devops-" + ENV_NAME
 def CONTAINER_TAG = getTag(env.BUILD_NUMBER, env.BRANCH_NAME)
 def HTTP_PORT = getHTTPPort(env.BRANCH_NAME)
 def EMAIL_RECIPIENTS = "plusmarwan@gmail.com"
 
+pipeline {
+    agent any
 
-node {
-    try {
-        stage('Initialize') {
-            def dockerHome = tool 'dockerlatest2'
-            def mavenHome = tool 'mavenlatest2'
-            env.PATH = "${dockerHome}/bin:${mavenHome}/bin:${env.PATH}"
-        }
+    environment {
+        dockerHome = tool 'dockerlatest2'
+        mavenHome = tool 'mavenlatest2'
+        PATH = "${dockerHome}/bin:${mavenHome}/bin:${PATH}"
+    }
 
+    stages {
         stage('Checkout') {
-            checkout scm
+            steps {
+                checkout scm
+            }
         }
 
         stage('Build with test') {
-
-            sh "mvn clean install -DfailIfNoTests=false"
+            steps {
+                sh "mvn clean install -DfailIfNoTests=false"
+            }
         }
 
         stage('Sonarqube Analysis') {
-            withSonarQubeEnv('sonarServer') {
-                sh " mvn sonar:sonar -Dintegration-tests.skip=true -Dmaven.test.failure.ignore=true"
-            }
-            timeout(time: 1, unit: 'MINUTES') {
-                def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
-                if (qg.status != 'OK') {
-                    error "Pipeline aborted due to quality gate failure: ${qg.status}"
+            steps {
+                withSonarQubeEnv('sonarServer') {
+                    sh "mvn sonar:sonar -Dintegration-tests.skip=true -Dmaven.test.failure.ignore=true"
+                }
+                timeout(time: 1, unit: 'MINUTES') {
+                    def qg = waitForQualityGate()
+                    if (qg.status != 'OK') {
+                        error "Pipeline aborted due to quality gate failure: ${qg.status}"
+                    }
                 }
             }
         }
 
         stage("Image Prune") {
-            imagePrune(CONTAINER_NAME)
+            steps {
+                script {
+                    imagePrune(CONTAINER_NAME)
+                }
+            }
         }
 
         stage('Image Build') {
-            imageBuild(CONTAINER_NAME, CONTAINER_TAG)
+            steps {
+                script {
+                    imageBuild(CONTAINER_NAME, CONTAINER_TAG)
+                }
+            }
         }
 
         stage('Push to Docker Registry') {
-            withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                pushToImage(CONTAINER_NAME, CONTAINER_TAG, USERNAME, PASSWORD)
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                        pushToImage(CONTAINER_NAME, CONTAINER_TAG, USERNAME, PASSWORD)
+                    }
+                }
             }
         }
 
         stage('Run App') {
-            withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                runApp(CONTAINER_NAME, CONTAINER_TAG, USERNAME, HTTP_PORT, ENV_NAME)
-
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhubcredentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                        runApp(CONTAINER_NAME, CONTAINER_TAG, USERNAME, HTTP_PORT, ENV_NAME)
+                    }
+                }
             }
         }
-
-    } finally {
-        deleteDir()
-        sendEmail(EMAIL_RECIPIENTS);
     }
 
+    post {
+        success {
+            script {
+                sendEmail(EMAIL_RECIPIENTS)
+            }
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+    }
 }
 
 def imagePrune(containerName) {
@@ -90,9 +117,10 @@ def runApp(containerName, tag, dockerHubUser, httpPort, envName) {
 
 def sendEmail(recipients) {
     mail(
-            to: recipients,
-            subject: "Build ${env.BUILD_NUMBER} - ${currentBuild.currentResult} - (${currentBuild.fullDisplayName})",
-            body: "Check console output at: ${env.BUILD_URL}/console" + "\n")
+        to: recipients,
+        subject: "Build ${env.BUILD_NUMBER} - ${currentBuild.currentResult} - (${currentBuild.fullDisplayName})",
+        body: "Check console output at: ${env.BUILD_URL}/console" + "\n"
+    )
 }
 
 String getEnvName(String branchName) {
